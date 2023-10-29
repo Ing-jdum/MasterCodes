@@ -1,0 +1,34 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+% N-Queens problems
+
+\section{World state}\label{sec:world-state}
+
+The world is a list \(X = s = [n_1, \ldots, n_n]\) where \(1 \leq n_i \leq n\). The queen \(i\) is denoted as \(s_i\) with a value of \(n_i\).
+
+\section{Initial states}\label{sec:initial-states}
+
+\(S = [x_0, \ldots, x_n]\) where \(0 \leq x \leq n\).
+
+\section{Final states}\label{sec:final-states}
+
+\begin{gather*}
+    \text{{threatens}}(i, j, s) = (n_i = n_j) \lor (\lvert n_i - n_j \rvert = \lvert i - j \rvert)\\
+    \text{{threats}} = \sum_{i=0}^{n-1} \sum_{j=i+1}^{n} \text{{threatens}}(i, j, s)\\
+\end{gather*}
+
+\section{Transition function}\label{sec:transition-function}
+
+\[
+[i, b](s) = \begin{cases}
+    n_i = n_i & \text{{if }} i \neq j, \\
+    n_i = n_i + b & \text{{if }} i = j.
+\end{cases}
+\]
+
+where \(b \in \{1, -1\}\).
+
+\end{document}
