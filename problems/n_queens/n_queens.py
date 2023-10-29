@@ -1,4 +1,4 @@
-from problem_interface import Problem
+from problems.problem_interface import Problem
 import logging
 import random
 

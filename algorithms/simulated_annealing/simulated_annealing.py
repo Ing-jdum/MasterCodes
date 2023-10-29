@@ -1,7 +1,8 @@
 import math
 import random
-from problem_interface.problem import Problem
-from n_queens import Nqueens
+from problems import Problem
+from problems.n_queens import Nqueens
+
 
 class SimulatedAnnealing:
 
@@ -26,25 +27,26 @@ class SimulatedAnnealing:
                       minimum_temperature: float):
         problem = self.problem
 
-        def simulated_annealing(state=problem.get_initial_state()):
+        def simulated_annealing():
             temperature = initial_temperature
             while temperature > minimum_temperature:
                 for _ in range(n):
                     future_state = problem.get_random_future_state()
-                    energy_change = (problem.heuristic(problem.current_state) -
+                    energy_change = (problem.heuristic(problem.get_current_state()) -
                                      problem.heuristic(future_state))
                     if energy_change > 0:
-                        problem.current_state = future_state
+                        problem.update_current_state(future_state)
                     else:
-                        problem.current_state = (self.__execute_with_probability(state, future_state,
-                                                                                 energy_change, temperature))
+                        problem.update_current_state(self.__execute_with_probability(problem.get_current_state(),
+                                                                                     future_state,
+                                                                                     energy_change, temperature))
                 temperature = temperature * cooling_factor
 
         while not (problem.validate_state()):
+            problem.update_current_state(problem.get_initial_state())
             simulated_annealing()
 
         return problem.get_current_state()
-
 
 
 # Test

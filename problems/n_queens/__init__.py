@@ -1,0 +1,1 @@
+from problems.n_queens.n_queens import Nqueens
