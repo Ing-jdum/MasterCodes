@@ -16,8 +16,10 @@ $amenazas = \sum\limits_{i=0}^{n-1} \sum\limits_{j=i+1}^{n} amenaza(i,j,s)$
 
 ## Transition function
 
-$[i,b](s) = \begin{cases}
-    n_i=n_i & \text{if } i \neq j, \\
-    n_i=n_i+b & \text{if } i = j.
-\end{cases}$
+$\[
+[i, b](s) = \begin{cases}
+    n_i = n_i & \text{{if }} i \neq j, \\
+    n_i = n_i + b & \text{{if }} i = j.
+\end{cases}
+\]$
  donde $b \in \{1,-1\}$
