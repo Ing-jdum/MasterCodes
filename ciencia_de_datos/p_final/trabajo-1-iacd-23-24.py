@@ -33,12 +33,12 @@
 
 # MUY IMPORTANTE: 
 # ===============    
-    
+
 # * NO CAMBIAR EL NOMBRE NI A ESTE ARCHIVO NI A LAS CLASES, MÉTODOS
 #   Y ATRIBUTOS QUE SE PIDEN. EN PARTICULAR: NO HACERLO EN UN NOTEBOOK.
 
 # * En este trabajo NO SE PERMITE USAR Scikit Learn. 
-  
+
 # * Se recomienda (y se valora especialmente) el uso eficiente de numpy. Todos 
 #   los datasets se suponen dados como arrays de numpy. 
 
@@ -49,12 +49,9 @@
 #   ninguna otra ejecución de ejemplos. 
 
 
-
 import math
 import random
 import numpy as np
-
-
 
 # *****************************************
 # CONJUNTOS DE DATOS A USAR EN ESTE TRABAJO
@@ -64,8 +61,9 @@ import numpy as np
 # los siguientes conjuntos de datos. Para cargar (casi) todos los conjuntos de datos,
 # basta con tener descomprimido el archivo datos-trabajo-1-iacd.tgz (en el mismo sitio
 # que este archivo) Y CARGARLOS CON LA SIGUIENTE ORDEN. 
-    
-from carga_datos import *    
+
+from carga_datos import *
+
 
 # Como consecuencia de la línea anterior, se habrán cargado los siguientes 
 # conjuntos de datos, que pasamos a describir, junto con los nombres de las 
@@ -89,7 +87,7 @@ from carga_datos import *
 #   mama, en función de una serie de características calculadas a partir de la
 #   imagen del tumor. Se carga en las variables X_cancer, y_cancer.
 
-  
+
 # * Críticas de cine en IMDB, clasificadas como positivas o negativas. El
 #   conjunto de datos que usaremos es sólo una parte de los textos del dataset original. 
 #   Los textos se han vectorizado usando CountVectorizer de Scikit Learn, con la opción
@@ -109,7 +107,6 @@ from carga_datos import *
 #   base de datos MNIST. En la carpeta digitdata están todos los datos.
 #   Para preparar estos datos habrá que escribir funciones que los
 #   extraigan de los ficheros de texto (más adelante se dan más detalles). 
-
 
 
 # ==================================================
@@ -157,7 +154,7 @@ from carga_datos import *
 
 # Otro ejemplo con los datos del cáncer, en el que se observa que las proporciones
 # entre clases se conservan en la partición. 
-    
+
 # >>> Xev_cancer,Xp_cancer,yev_cancer,yp_cancer=particion_entr_prueba(X_cancer,y_cancer,test=0.2)
 
 # >>> np.unique(y_cancer,return_counts=True)
@@ -200,28 +197,6 @@ from carga_datos import *
 # ------------------------------------------------------------------
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ========================================================
 # EJERCICIO 2: IMPLEMENTACIÓN DEL CLASIFICADOR NAIVE BAYES
 # ========================================================
@@ -242,7 +217,7 @@ from carga_datos import *
 #     def __init__(self,k=1):
 #                 
 #          .....
-         
+
 #     def entrena(self,X,y):
 
 #         ......
@@ -274,7 +249,7 @@ from carga_datos import *
 
 class ClasificadorNoEntrenado(Exception): pass
 
-  
+
 # Ejemplo "jugar al tenis":
 
 
@@ -285,13 +260,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # {'no': 0.7564841498559081, 'si': 0.24351585014409202}
 # >>> nb_tenis.clasifica(ej_tenis)
 # 'no'
-
-
-
-
-
-
-
 
 
 # ----------------------------------------------
@@ -306,9 +274,6 @@ class ClasificadorNoEntrenado(Exception): pass
 
 # >>> rendimiento(nb_tenis,X_tenis,y_tenis)
 # 0.9285714285714286
-
-
-
 
 
 # --------------------------
@@ -331,10 +296,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # y los rendimientos obtenidos. 
 
 
-
-
-
-
 # ==================================
 # EJERCICIO 3: NORMALIZADOR ESTÁNDAR
 # ==================================
@@ -352,7 +313,7 @@ class ClasificadorNoEntrenado(Exception): pass
 #    def __init__(self):
 
 #         .....
-        
+
 #     def ajusta(self,X):
 
 #         .....        
@@ -375,8 +336,8 @@ class NormalizadorNoAjustado(Exception): pass
 
 
 # Por ejemplo:
-    
-    
+
+
 # >>> normst_cancer=NormalizadorStandard()
 # >>> normst_cancer.ajusta(Xe_cancer)
 # >>> Xe_cancer_n=normst_cancer.normaliza(Xe_cancer)
@@ -388,35 +349,7 @@ class NormalizadorNoAjustado(Exception): pass
 # ni con Xp_cancer_n. 
 
 
-
-# ------ 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# ------
 
 
 # ===========================================
@@ -438,7 +371,7 @@ class NormalizadorNoAjustado(Exception): pass
 #                 batch_tam=64):
 
 #         .....
-        
+
 #     def entrena(self,X,y,Xv=None,yv=None,n_epochs=100,salida_epoch=False,
 #                     early_stopping=False,paciencia=3):
 
@@ -447,15 +380,13 @@ class NormalizadorNoAjustado(Exception): pass
 #     def clasifica_prob(self,ejemplos):
 
 #         ......
-    
+
 #     def clasifica(self,ejemplos):
-                        
+
 #          ......
 
 
-
 # * El constructor tiene los siguientes argumentos de entrada:
-
 
 
 #   + rate: si rate_decay es False, rate es la tasa de aprendizaje fija usada
@@ -507,14 +438,12 @@ class NormalizadorNoAjustado(Exception): pass
 #        
 
 
-
 # * Método clasifica: recibe UN ARRAY de ejemplos (array numpy) y
 #   devuelve el ARRAY de clases que el modelo predice para esos ejemplos. 
 
 # * Un método clasifica_prob, que recibe UN ARRAY de ejemplos (array numpy) y
 #   devuelve el ARRAY con las probabilidades que el modelo 
 #   asigna a cada ejemplo de pertenecer a la clase positiva.       
-    
 
 
 # Si se llama a los métodos de clasificación antes de entrenar el modelo, se
@@ -522,10 +451,7 @@ class NormalizadorNoAjustado(Exception): pass
 
 class ClasificadorNoEntrenado(Exception): pass
 
-        
-  
-
-# RECOMENDACIONES: 
+# RECOMENDACIONES:
 
 
 # + IMPORTANTE: Siempre que se pueda, tratar de evitar bucles for para recorrer 
@@ -567,14 +493,12 @@ class ClasificadorNoEntrenado(Exception): pass
 
 
 # Por ejemplo, los rendimientos sobre los datos (normalizados) del cáncer:
-    
+
 # >>> rendimiento(lr_cancer,Xe_cancer_n,ye_cancer)
 # 0.9824561403508771
 
 # >>> rendimiento(lr_cancer,Xp_cancer_n,yp_cancer)
 # 0.9734513274336283
-
-
 
 
 # Ejemplo con salida_epoch y early_stopping:
@@ -606,34 +530,12 @@ class ClasificadorNoEntrenado(Exception): pass
 # -----------------------------------------------------------------
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ===================================================
 # EJERCICIO 5: APLICANDO LOS CLASIFICADORES BINARIOS
 # ===================================================
 
 
-
-# Usando la regeresión logística implementada en el ejercicio 2, obtener clasificadores 
+# Usando la regeresión logística implementada en el ejercicio 2, obtener clasificadores
 # con el mejor rendimiento posible para los siguientes conjunto de datos:
 
 # - Votos de congresistas US
@@ -646,35 +548,6 @@ class ClasificadorNoEntrenado(Exception): pass
 
 # Dsctbir el proceso realizado en cada caso, y los rendimientos finales obtenidos
 # sobre un conjunto de prueba (dejarlo todo como comentario)     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # =====================================================
@@ -704,8 +577,6 @@ class ClasificadorNoEntrenado(Exception): pass
 #     def clasifica(self,ejemplos):
 
 #        ......
-            
-
 
 
 #  Los parámetros de los métodos significan lo mismo que en el apartado
@@ -714,7 +585,6 @@ class ClasificadorNoEntrenado(Exception): pass
 #  Por simplificar, supondremos que no hay conjunto de validación ni parada
 #  temprana.  
 
- 
 
 #  Un ejemplo de sesión, con el problema del iris:
 
@@ -732,24 +602,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # >>> rendimiento(rl_iris_ovr,Xp_iris,yp_iris)
 # >>> 0.9
 # --------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # =====================================================
@@ -780,7 +632,7 @@ class ClasificadorNoEntrenado(Exception): pass
 # "c" --> (0 0 1)    
 
 # Definir una función:    
-    
+
 #     codifica_one_hot(X) 
 
 # que recibe un conjunto de datos X (array de numpy) y devuelve un array de numpy
@@ -792,14 +644,14 @@ class ClasificadorNoEntrenado(Exception): pass
 
 # Aplicar la función para obtener una codificación one-hot de los datos sobre
 # concesión de prestamo bancario.     
-  
+
 # >>> Xc=np.array([["a",1,"c","x"],
 #                  ["b",2,"c","y"],
 #                  ["c",1,"d","x"],
 #                  ["a",2,"d","z"],
 #                  ["c",1,"e","y"],
 #                  ["c",2,"f","y"]])
-   
+
 # >>> codifica_one_hot(Xc)
 # 
 # array([[1., 0., 0., 1., 0., 1., 0., 0., 0., 1., 0., 0.],
@@ -815,32 +667,6 @@ class ClasificadorNoEntrenado(Exception): pass
 #   * Columna 2 ---> Columnas 5,6,7,8
 #   * Columna 3 ---> Columnas 9, 10,11     
 
-    
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ---------------------------------------------------------
 # 8.2) Conjunto de datos de la concesión de crédito
@@ -852,14 +678,6 @@ class ClasificadorNoEntrenado(Exception): pass
 
 # Ajustar adecuadamente los parámetros (nuevamente, no es necesario ser demasiado 
 # exhaustivo). Describirlo en los comentarios. 
-
-
-
-
-
-
-
-
 
 
 # ---------------------------------------------------------
@@ -884,7 +702,7 @@ class ClasificadorNoEntrenado(Exception): pass
 #  Los datos están ya separados en entrenamiento, validación y prueba. 
 
 # Se pide:
-    
+
 # * Definir las funciones auxiliares necesarias para cargar el dataset desde los 
 #   archivos de texto, y crear variables:
 #       X_entr_dg, y_entr_dg
@@ -900,25 +718,6 @@ class ClasificadorNoEntrenado(Exception): pass
 
 
 # --------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ********************************************************************************
@@ -945,7 +744,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # O DEVUELVE ALGÚN ERROR, DEJAR COMENTADOS LOS CORRESPONDIENTES EJEMPLOS. 
 
 
-
 # *********** DESCOMENTAR A PARTIR DE AQUÍ
 
 # print("************ PRUEBAS EJERCICIO 1:")
@@ -970,9 +768,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # print("Estratificación entrenamiento crédito: ",np.unique(ye_credito,return_counts=True))
 # print("Estratificación prueba crédito: ",np.unique(yp_credito,return_counts=True))
 # print("\n\n\n")
-
-
-
 
 
 # print("************ PRUEBAS EJERCICIO 2:")
@@ -1010,7 +805,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # print("**********************************\n")
 
 
-
 # normst_cancer=NormalizadorStandard()
 # normst_cancer.ajusta(Xe_cancer)
 # Xe_cancer_n=normst_cancer.normaliza(Xe_cancer)
@@ -1022,7 +816,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # print("Normalización cancer test: ",np.mean(Xp_cancer,axis=0))
 
 # print("\n\n\n")
-
 
 
 # print("************ PRUEBAS EJERCICIO 4:")
@@ -1055,7 +848,6 @@ class ClasificadorNoEntrenado(Exception): pass
 # print("OvR Rendimiento entrenamiento iris: ",rendimiento(rl_iris_ovr,Xe_iris,ye_iris))
 # print("OvR Rendimiento prueba iris: ",rendimiento(rl_iris_ovr,Xp_iris,yp_iris))
 # print("\n\n\n")
-
 
 
 # print("************ RENDIMIENTOS FINALES REGRESIÓN LOGÍSTICA EN CRÉDITO, IMDB y DÍGITOS")
@@ -1106,11 +898,3 @@ class ClasificadorNoEntrenado(Exception): pass
 # print("Rendimiento RL entrenamiento sobre dígitos: ",rendimiento(RL_DG,X_entr_dg,y_entr_dg))
 # print("Rendimiento RL validación sobre dígitos: ",rendimiento(RL_DG,X_val_dg,y_val_dg))
 # print("Rendimiento RL test sobre dígitos: ",rendimiento(RL_DG,X_test_dg,y_test_dg))
-
-
-
-
-
-
-
-
