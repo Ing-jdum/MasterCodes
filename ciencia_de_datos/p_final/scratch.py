@@ -127,7 +127,7 @@ class NaiveBayes:
         return max(prob_dict, key=prob_dict.get)
 
 
-def rendimiento(clasificador: NaiveBayes, X: np.ndarray, y: np.ndarray) -> float:
+def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
     """
     Performance del clasificador dado un conjunto de datos de test
 
@@ -138,18 +138,24 @@ def rendimiento(clasificador: NaiveBayes, X: np.ndarray, y: np.ndarray) -> float
     """
 
     # Make predictions for each example in X
-    y_pred = np.array([clasificador.clasifica(ejemplo) for ejemplo in X])
+    y_pred_accum = 0
+    for idx, x in enumerate(X):
+        pred = clasificador.clasifica(x) == y[idx]
+        y_pred_accum += pred
 
-    # Calculate accuracy
-    accuracy = np.mean(y_pred == y)
+    # Calculate the total number of predictions
+    total = len(y)
+
+    # Calculate the accuracy
+    accuracy = y_pred_accum / total
 
     return accuracy
 
 
-nb_tenis = NaiveBayes(k=0.5)
-nb_tenis.entrena(X_tenis, y_tenis)
-ej_tenis = np.array(['Soleado', 'Baja', 'Alta', 'Fuerte'])
-print(nb_tenis.clasifica_prob(ej_tenis))
-print(nb_tenis.clasifica(ej_tenis))
-
-print(rendimiento(nb_tenis, X_tenis, y_tenis))
+# nb_tenis = NaiveBayes(k=0.5)
+# nb_tenis.entrena(X_tenis, y_tenis)
+# ej_tenis = np.array(['Soleado', 'Baja', 'Alta', 'Fuerte'])
+# print(nb_tenis.clasifica_prob(ej_tenis))
+# print(nb_tenis.clasifica(ej_tenis))
+#
+# print("rendimiento", rendimiento(nb_tenis, X_tenis, y_tenis))
