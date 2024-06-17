@@ -13,7 +13,15 @@ class RL_OvR:
         self.classifiers = []
         self.classes = None
 
-    def entrena(self, X, y, n_epochs=100, salida_epoch=False):
+    def entrena(self, X: np.ndarray, y: np.ndarray, n_epochs:int =100, salida_epoch=False) -> None:
+        """
+
+        :param X: Dataset de entrenamiento como numpy array
+        :param y:  Clase objetivo
+        :param n_epochs: Numero de epchos
+        :param salida_epoch: Entrenamiento verbose o no
+        :return: Nada
+        """
         self.classes = np.unique(y)
         self.classifiers = []
 
@@ -25,6 +33,11 @@ class RL_OvR:
             self.classifiers.append(classifier)
 
     def clasifica_prob(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+
+        :param ejemplos: array de valores para realizar la predicción
+        :return: array de arrays de probabilidad de pertenencer a cada clase para cada ejemplo
+        """
         if not self.classifiers:
             raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
 
@@ -40,6 +53,11 @@ class RL_OvR:
         return probas
 
     def clasifica(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+
+        :param ejemplos: array de valores para realizar la predicción
+        :return: array de clases de cada uno de los ejemplos
+        """
         if not self.classifiers:
             raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
 

@@ -78,7 +78,7 @@ class RegresionLogisticaMiniBatch:
         if self.classes[0] != 0 or self.classes[1] != 1:
             raise ValueError("Las clases deben estar ordenadas como [negativo, positivo].")
 
-        # Early stopping
+        # Early stopping incializacion
         if early_stopping:
             mejor_ec_val = float('inf')
             epochs_sin_mejora = 0
