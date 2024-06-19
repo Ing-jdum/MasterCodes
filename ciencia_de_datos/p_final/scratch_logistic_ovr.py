@@ -48,7 +48,6 @@ class RL_OvR:
         probas = np.zeros((ejemplos.shape[0], len(self.classes)))
 
         for i, classifier in enumerate(self.classifiers):
-            print(classifier.w)
             probas[:, i] = classifier.clasifica_prob(ejemplos)
         return probas
 
@@ -65,12 +64,12 @@ class RL_OvR:
         return np.argmax(probas, axis=1)
 
 
-Xe_iris, Xp_iris, ye_iris, yp_iris = particion_entr_prueba(X_iris, y_iris)
-
-rl_iris_ovr = RL_OvR(rate=0.001, batch_tam=8)
-# print(Xe_iris, Xp_iris, ye_iris, yp_iris)
-rl_iris_ovr.entrena(Xe_iris, ye_iris, n_epochs=500)
-print("hola", rl_iris_ovr.clasifica(Xe_iris))
-
+# Xe_iris, Xp_iris, ye_iris, yp_iris = particion_entr_prueba(X_iris, y_iris)
+#
+# rl_iris_ovr = RL_OvR(rate=0.001, batch_tam=8)
+# # print(Xe_iris, Xp_iris, ye_iris, yp_iris)
+# rl_iris_ovr.entrena(Xe_iris, ye_iris, n_epochs=500)
+# print("hola", rl_iris_ovr.clasifica(Xe_iris))
+#
 # print(rendimiento(rl_iris_ovr, Xe_iris, ye_iris))
 
