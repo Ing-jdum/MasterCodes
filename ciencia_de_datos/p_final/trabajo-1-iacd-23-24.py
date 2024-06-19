@@ -51,7 +51,12 @@
 
 import math
 import random
+import time
+from concurrent.futures import ProcessPoolExecutor
+from typing import Tuple
+
 import numpy as np
+from scipy.special import expit
 
 # *****************************************
 # CONJUNTOS DE DATOS A USAR EN ESTE TRABAJO
@@ -125,22 +130,52 @@ from carga_datos import *
 # cada partición debe ser consistente con el orden original en X e y.   
 # 
 
+def particion_entr_prueba(X: np.ndarray, y: np.ndarray, test: float = 0.20) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Estratifica en train y test
+
+    :param X: Training data
+    :param y:  Target Data
+    :param test: Proporcion de test del total
+    :return: X_train, y_train, X_test, y_test
+    """
+    np.random.seed(0)
+    # obtener las particiones de estratificación
+    unique_classes, counts = np.unique(y, return_counts=True)
+
+    # calcular la proporción de cada clase para test
+    test_counts = np.floor(counts * test).astype(int)
+
+    train_indices, test_indices = [], []
+    for class_label, test_count in zip(unique_classes, test_counts):
+        # Toma los indices de la clase en cuestion
+        class_indices = np.where(y == class_label)[0]
+        np.random.shuffle(class_indices)
+        # obten los indices hasta la cantidad necesaria para test
+        test_indices.extend(class_indices[:test_count])
+        # los otros ponlo en train
+        train_indices.extend(class_indices[test_count:])
+
+    return X[train_indices], X[test_indices], y[train_indices], y[test_indices]
+
+
 # ------------------------------------------------------------------------------
 # Ejemplos:
 # =========
 
 # En votos:
 
-# >>> Xe_votos,Xp_votos,ye_votos,yp_votos=particion_entr_prueba(X_votos,y_votos,test=1/3)
+# Xe_votos,Xp_votos,ye_votos,yp_votos=particion_entr_prueba(X_votos,y_votos,test=1/3)
 
 # Como se observa, se han separado 2/3 para entrenamiento y 1/3 para prueba:
-# >>> y_votos.shape[0],ye_votos.shape[0],yp_votos.shape[0]
-#    (435, 290, 145)
+# print(y_votos.shape[0],ye_votos.shape[0],yp_votos.shape[0])
+
 
 # Las proporciones entre las clases son (aprox) las mismas en los dos conjuntos de
 # datos, y la misma que en el total: 267/168=178/112=89/56
 
-# >>> np.unique(y_votos,return_counts=True)
+# print(np.unique(y_votos,return_counts=True))
 #  (array([0, 1]), array([168, 267]))
 # >>> np.unique(ye_votos,return_counts=True)
 #  (array([0, 1]), array([112, 178]))
@@ -250,13 +285,107 @@ from carga_datos import *
 class ClasificadorNoEntrenado(Exception): pass
 
 
+class NaiveBayes:
+
+    def __init__(self, k: float = 1):
+        self.k = k
+        # probabilidades a priori
+        self.priors: np.ndarray = None
+        self.X: np.ndarray = None
+        self.y: np.ndarray = None
+        # Conteo de cada clase
+        self.class_count: np.ndarray = None
+        # Las clases
+        self.classes: np.ndarray = None
+        # Para laplace, cuantos valores unicos puede tomar cada feature
+        self.unique_feature_count: np.ndarray = None
+
+    def entrena(self, X: np.ndarray, y: np.ndarray):
+        """
+        Este metodo calcula las probabilidades a priori y algunas cosas utiles para la clasificación
+        :param X: Train set
+        :param y: Target values
+        :return: None
+        """
+        self.X = X
+        self.y = y
+
+        self.classes, self.class_count = np.unique(y, return_counts=True)
+        self.priors = self.class_count / sum(self.class_count)
+        # Aplana un array 2d y el valor en cada posicion corresponde a la cantidad de valores unicos de cada columna
+        self.unique_feature_count = np.apply_along_axis(lambda col: len(np.unique(col)), axis=0, arr=X)
+
+    def clasifica_prob(self, ejemplo: np.ndarray) -> dict:
+        """
+        Recibe un ejemplo y devuelve las probabilidades de cada clase
+        :param ejemplo: array numpy con los valores de cada atributo
+        :return: diccionario con la probabilidad de cada clase.
+        """
+
+        if self.priors is None:
+            raise ClasificadorNoEntrenado
+
+        result = {}
+        proportional_probs = self.calculate_proportional_probabilities(ejemplo)
+
+        # Estos pasos son solo necesarios para obtener una probabilidad y no un valor proporcional a la probabilidad.
+        # Convertir a probabilidad eliminando las operaciones de logaritmo
+        prob_props = np.exp(proportional_probs)
+
+        # Normalizar
+        prob_props /= np.sum(prob_props)
+
+        for idx, current_class in enumerate(self.classes):
+            result[current_class] = prob_props[idx]
+
+        return result
+
+    def calculate_proportional_probabilities(self, ejemplo: np.ndarray) -> np.ndarray:
+        """
+        Metodo que aplica naive bayes al ejemplo con suavizado de la place y log prob.
+        :param ejemplo: array a clasificar
+        :return: un array de valores proporcionales a las probabilidades
+        """
+
+        # Inicializar valores
+        num_features = self.X.shape[1]
+
+        proportional_probs = np.zeros(len(self.classes))
+        for idx, current_class in enumerate(self.classes):
+            # Los valores del conjunto de entrenamiento que corresponden a la clase en cuestion
+            X_given_class = self.X[self.y == current_class]
+
+            # cuenta para cada features cuantos hay del valor del ejemplo
+            counts = np.array([np.sum(X_given_class[:, i] == ejemplo[i]) for i in range(num_features)])
+
+            # divisor del suavizado laplace
+            numerator = counts + self.k
+            denom = self.class_count[idx] + (self.k * self.unique_feature_count)
+
+            # calculo del valor de las probabilidades condicionales
+            conditional_prob = numerator / denom
+
+            # Calcular la probabilidad proporcional
+            proportional_probs[idx] = np.log(self.priors[idx]) + np.sum(np.log(conditional_prob))
+        return proportional_probs
+
+    def clasifica(self, ejemplo: np.ndarray):
+        if self.priors is None:
+            raise ClasificadorNoEntrenado
+        if not isinstance(ejemplo, np.ndarray):
+            print("Error: No es un array de numpy")
+            return
+        prob_dict = self.clasifica_prob(ejemplo)
+        return max(prob_dict, key=prob_dict.get)
+
+
 # Ejemplo "jugar al tenis":
 
 
-# >>> nb_tenis=NaiveBayes(k=0.5)
-# >>> nb_tenis.entrena(X_tenis,y_tenis)
-# >>> ej_tenis=np.array(['Soleado','Baja','Alta','Fuerte'])
-# >>> nb_tenis.clasifica_prob(ej_tenis)
+# nb_tenis=NaiveBayes(k=0.5)
+# nb_tenis.entrena(X_tenis,y_tenis)
+# ej_tenis=np.array(['Soleado','Baja','Alta','Fuerte'])
+# print(nb_tenis.clasifica_prob(ej_tenis))
 # {'no': 0.7564841498559081, 'si': 0.24351585014409202}
 # >>> nb_tenis.clasifica(ej_tenis)
 # 'no'
@@ -274,6 +403,26 @@ class ClasificadorNoEntrenado(Exception): pass
 
 # >>> rendimiento(nb_tenis,X_tenis,y_tenis)
 # 0.9285714285714286
+
+def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Performance del clasificador dado un conjunto de datos de test
+
+    :param clasificador: Clasificador entrenado con metodo clasifica
+    :param X:  Datos de test
+    :param y: Clase objetivo de test
+    :return: accuracy
+    """
+
+    # Acumula los correctos
+    y_pred_accum = 0
+    for idx, x in enumerate(X):
+        pred = clasificador.clasifica(x) == y[idx]
+        y_pred_accum += pred
+
+    total = len(y)
+    accuracy = y_pred_accum / total
+    return accuracy
 
 
 # --------------------------
@@ -322,8 +471,7 @@ class ClasificadorNoEntrenado(Exception): pass
 
 #         ......
 
-# 
-
+#
 
 # donde el método ajusta calcula las corresondientes medias y desviaciones típicas
 # de las características de X necesarias para la normalización, y el método 
@@ -335,14 +483,43 @@ class ClasificadorNoEntrenado(Exception): pass
 class NormalizadorNoAjustado(Exception): pass
 
 
+class NormalizadorStandard:
+
+    def __init__(self):
+        self.mean = None
+        self.std = None
+        self.adjusted = False
+
+    def ajusta(self, X: np.ndarray) -> None:
+        """
+         Calcula las medias y desviaciones estándar de las características de X necesarias para la normalización.
+        :param X: Matriz de datos de entrenamiento de forma (n_samples, n_features).
+
+        :return: None
+        """
+
+        self.mean = np.mean(X, axis=0)
+        self.std = np.std(X, axis=0)
+        self.adjusted = True
+
+    def normaliza(self, X: np.ndarray) -> np.ndarray:
+        """
+        Normaliza las características de X utilizando la normalizacin estándar.
+
+        :param X: Matriz de datos a normalizar de forma (n_samples, n_features).
+        :return: Matriz de datos normalizados de forma (n_samples, n_features).
+        """
+
+        if not self.adjusted:
+            raise NormalizadorNoAjustado("Debe ajustar el normalizador antes de normalizar los datos.")
+
+        X_norm = (X - self.mean) / self.std
+        return X_norm
+
+
 # Por ejemplo:
 
-
-# >>> normst_cancer=NormalizadorStandard()
-# >>> normst_cancer.ajusta(Xe_cancer)
-# >>> Xe_cancer_n=normst_cancer.normaliza(Xe_cancer)
-# >>> Xv_cancer_n=normst_cancer.normaliza(Xv_cancer)
-# >>> Xp_cancer_n=normst_cancer.normaliza(Xp_cancer)
+#
 
 # Una vez realizado esto, la media y desviación típica de Xe_cancer_n deben ser 
 # 0 y 1, respectivamente. No necesariamente ocurre lo mismo con Xv_cancer_n, 
@@ -451,6 +628,7 @@ class NormalizadorNoAjustado(Exception): pass
 
 class ClasificadorNoEntrenado(Exception): pass
 
+
 # RECOMENDACIONES:
 
 
@@ -527,8 +705,191 @@ class ClasificadorNoEntrenado(Exception): pass
 # sobre el conjunto de validación, ésta no se ha mejorado. 
 
 
-# -----------------------------------------------------------------
+class RegresionLogisticaMiniBatch:
 
+    def __init__(self, rate=0.1, rate_decay=False, n_epochs=100, batch_tam=64):
+        self.rate = rate
+        self.rate_decay = rate_decay
+        self.n_epochs = n_epochs
+        self.batch_tam = batch_tam
+        self.w = None  # Se inicializará en el método entrena
+        self.classes = None
+        self.cross_entropy_train = []
+        self.accuracy_train = []
+        self.cross_entropy_val = []
+        self.accuracy_val = []
+        self.best_epoch = None
+
+    @staticmethod
+    def _sigmoid(x):
+        """
+        Función sigmoide usando expit de scipy.special.
+        :param x: Array de entrada.
+        :return: Array con valores sigmoide.
+        """
+
+        return expit(x)
+
+    @staticmethod
+    def _cross_entropy_loss(y_true, y_pred):
+        """
+        Calcula la pérdida de entropía cruzada.
+        :param y_true: Etiquetas verdaderas de los datos.
+        :param y_pred: Probabilidades predichas.
+        :return: Pérdida de entropía cruzada.
+        """
+
+        epsilon = 1e-10  # Para evitar log(0)
+        y_pred = np.clip(y_pred, epsilon, 1 - epsilon)  # Clip para evitar log(0) y log(1)
+        loss = -np.mean(np.where(y_true == 1, np.log(y_pred), np.log(1 - y_pred)))
+        return loss
+
+    def entrena(self, X, y, Xv=None, yv=None, n_epochs=None, salida_epoch=False, early_stopping=False, paciencia=3):
+        """
+        Entrena el clasificador utilizando regresión logística
+        con descenso de gradiente mini-batch.
+
+        :param X: Matriz de datos de entrenamiento de forma (n_samples, n_features).
+        :param y: Vector de etiquetas de entrenamiento de forma (n_samples,).
+        :param Xv: Matriz de datos de validación de forma (n_samples_val, n_features).
+        :param yv: Vector de etiquetas de validación de forma (n_samples_val,).
+        :param n_epochs: Número máximo de epochs para el entrenamiento. Si es None, usa el valor del constructor.
+        :param salida_epoch: Si es True, imprime la entropía cruzada y el rendimiento en cada epoch.
+        :param early_stopping: Si es True, activa early stopping basado en la entropía cruzada de validación.
+        :param paciencia: Número de epochs sin mejora para detener el entrenamiento si early_stopping es True.
+        :return: None
+        """
+
+        if n_epochs is None:
+            n_epochs = self.n_epochs
+
+        # Inicializar pesos aleatorios
+        np.random.seed(0)
+        self.w = np.random.randn(X.shape[1])
+
+        # Determinar las clases y su orden
+        self.classes = np.unique(y).tolist()
+
+        # Si no hay clases, no se puede entrenar
+        if len(self.classes) != 2:
+            raise ValueError("Debe haber exactamente dos clases para la regresión logística binaria.")
+
+        # Si las clases no están ordenadas correctamente (negativo, positivo)
+        if self.classes[0] != 0 or self.classes[1] != 1:
+            raise ValueError("Las clases deben estar ordenadas como [negativo, positivo].")
+
+        # Early stopping incializacion
+        if early_stopping:
+            mejor_ec_val = float('inf')
+            epochs_sin_mejora = 0
+
+        # Entrenamiento
+        rate_actual = self.rate
+        for epoch in range(n_epochs):
+            if self.rate_decay:
+                rate_actual = self.rate / (1 + epoch)
+
+            # Shuffle de los datos
+            idx_shuffle = np.random.permutation(len(X))
+            X_shuffled = X[idx_shuffle]
+            y_shuffled = y[idx_shuffle]
+
+            # Mini-batch training
+            for i in range(0, len(X), self.batch_tam):
+                end = min(i + self.batch_tam, len(X))
+                X_batch = X_shuffled[i:end]
+                y_batch = y_shuffled[i:end]
+
+                # Calcular gradiente y actualizar pesos
+                y_pred = self._sigmoid(np.dot(X_batch, self.w))
+                gradient = np.dot(X_batch.T, (y_pred - y_batch)) / len(X_batch)
+                self.w -= rate_actual * gradient
+
+            # Calcular métricas de entrenamiento
+            accuracy_train, cross_entropy_train = self._calculate_metrics(X, y, salida_epoch, early_stopping)
+            self.accuracy_train.append(accuracy_train)
+
+            if cross_entropy_train is not None:
+                self.cross_entropy_train.append(cross_entropy_train)
+
+            # Si hay conjunto de validación, calcular métricas de validación
+            if Xv is not None and yv is not None:
+                accuracy_val, cross_entropy_val = self._calculate_metrics(Xv, yv, salida_epoch, early_stopping)
+
+                # Almacenar métricas de validación
+                if cross_entropy_val is not None:
+                    self.cross_entropy_val.append(cross_entropy_val)
+                self.accuracy_val.append(accuracy_val)
+
+                # Early stopping
+                if early_stopping:
+                    if cross_entropy_val < mejor_ec_val:
+                        mejor_ec_val = cross_entropy_val
+                        self.best_epoch = epoch
+                        epochs_sin_mejora = 0
+                    else:
+                        epochs_sin_mejora += 1
+                        if epochs_sin_mejora >= paciencia:
+                            print("PARADA TEMPRANA")
+                            return
+
+            # Imprimir métricas por epoch si salida_epoch es True
+            if salida_epoch:
+                print(
+                    f"Epoch {epoch}, En entrenamiento EC: {cross_entropy_train}, Rendimiento: {accuracy_train} ")
+                if Xv is not None and yv is not None:
+                    print(
+                        f"en validación    EC: {cross_entropy_val}, Rendimiento: {accuracy_val}")
+
+    def _calculate_metrics(self, X: np.ndarray, y: np.ndarray, salida_epoch: bool, early_stopping: bool) -> Tuple[
+        float, float]:
+        """
+        Función auxiliar para evitar repetir codigo en el calculo de metricas para validacion y entrenamiento
+        :param X:
+        :param y:
+        :param salida_epoch:
+        :param early_stopping:
+        :return:
+        """
+        y_pred_val = self.clasifica_prob(X)
+
+        # + Téngase en cuenta que el cálculo de la entropía cruzada no es necesario
+        #   para el entrenamiento, aunque si salida_epoch o early_stopping es True,
+        #   entonces si es necesario su cálculo. Tenerlo en cuenta para no calcularla
+        #   cuando no sea necesario.
+        if salida_epoch or early_stopping:
+            cross_entropy_val = self._cross_entropy_loss(y, y_pred_val)
+        else:
+            cross_entropy_val = None
+
+        accuracy_val = rendimiento(self, X, y)
+        return accuracy_val, cross_entropy_val
+
+    def clasifica_prob(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+        Calcula las probabilidades de pertenecer a la clase positiva para los ejemplos dados.
+        :param ejemplos: Array de ejemplos de forma (n_samples, n_features).
+        :return: Array de probabilidades de pertenecer a la clase positiva para cada ejemplo.
+        """
+        if self.w is None:
+            raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
+
+        return self._sigmoid(np.dot(ejemplos, self.w))
+
+    def clasifica(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+        Clasifica los ejemplos dados en las clases negativas (0) o positivas (1).
+        :param ejemplos: Array de ejemplos de forma (n_samples, n_features).
+        :return: Array de predicciones de clases para cada ejemplo.
+        """
+
+        if self.w is None:
+            raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
+        probabilidades = self.clasifica_prob(ejemplos)
+        return np.where(probabilidades >= 0.5, self.classes[1], self.classes[0])
+
+
+# -----------------------------------------------------------------
 
 # ===================================================
 # EJERCICIO 5: APLICANDO LOS CLASIFICADORES BINARIOS
@@ -603,6 +964,93 @@ class ClasificadorNoEntrenado(Exception): pass
 # >>> 0.9
 # --------------------------------------------------------------------
 
+# Por diversión para comparar la versión paralela con la lineal
+def timing_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time for {func.__name__}: {elapsed_time} seconds")
+        return result
+
+    return wrapper
+
+
+class RL_OvR:
+    def __init__(self, rate=0.1, rate_decay=False, batch_tam=64):
+        self.rate = rate
+        self.rate_decay = rate_decay
+        self.batch_tam = batch_tam
+        self.classifiers = []
+        self.classes = None
+
+    @timing_decorator
+    def entrena(self, X: np.ndarray, y: np.ndarray, n_epochs: int = 100, salida_epoch=False) -> None:
+        """
+        :param X: Dataset de entrenamiento como numpy array
+        :param y:  Clase objetivo
+        :param n_epochs: Numero de epchos
+        :param salida_epoch: Entrenamiento verbose o no
+        :return: Nada
+        """
+        self.classes = np.unique(y)
+        self.classifiers = []
+
+        for cls in self.classes:
+            # Esto es facilmente paralalizable usando concurrent futures, pero, para mantenerlo enfocado en numpy.
+            classifier = RegresionLogisticaMiniBatch(rate=self.rate, rate_decay=self.rate_decay, n_epochs=n_epochs,
+                                                     batch_tam=self.batch_tam)
+            y_binary = np.where(y == cls, 1, 0)
+            classifier.entrena(X, y_binary, n_epochs=n_epochs, salida_epoch=salida_epoch)
+            self.classifiers.append(classifier)
+
+    # Por diversión para comparar la velocidad respecto a la versión lineal.
+    def _entrena_paralelo_auxiliar(self, cls, X: np.ndarray, y: np.ndarray, n_epochs: int = 100,
+                                   salida_epoch=False) -> RegresionLogisticaMiniBatch:
+        classifier = RegresionLogisticaMiniBatch(rate=self.rate, rate_decay=self.rate_decay, n_epochs=n_epochs,
+                                                 batch_tam=self.batch_tam)
+        y_binary = np.where(y == cls, 1, 0)
+        classifier.entrena(X, y_binary, n_epochs=n_epochs, salida_epoch=salida_epoch)
+        return classifier
+
+    @timing_decorator
+    def _entrena_paralelo(self, X: np.ndarray, y: np.ndarray, n_epochs: int = 100, salida_epoch=False):
+        self.classes = np.unique(y)
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(self._entrena_paralelo_auxiliar, cls, X, y, n_epochs, salida_epoch) for cls in
+                       self.classes]
+            self.classifiers = [future.result() for future in futures]
+
+    def clasifica_prob(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+        :param ejemplos: array de valores para realizar la predicción
+        :return: array de arrays de probabilidad de pertenencer a cada clase para cada ejemplo
+        """
+        if not self.classifiers:
+            raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
+
+        # Ensure the input is two-dimensional
+        if ejemplos.ndim == 1:
+            ejemplos = ejemplos.reshape(1, -1)
+
+        probas = np.zeros((ejemplos.shape[0], len(self.classes)))
+
+        for i, classifier in enumerate(self.classifiers):
+            probas[:, i] = classifier.clasifica_prob(ejemplos)
+        return probas
+
+    def clasifica(self, ejemplos: np.ndarray) -> np.ndarray:
+        """
+        :param ejemplos: array de valores para realizar la predicción
+        :return: array de clases de cada uno de los ejemplos
+        """
+        if not self.classifiers:
+            raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
+
+        probas = self.clasifica_prob(ejemplos)
+        return self.classes[np.argmax(probas, axis=1)]
+
 
 # =====================================================
 # EJERCICIO 7: APLICANDO LOS CLASIFICADORES MULTICLASE
@@ -641,6 +1089,21 @@ class ClasificadorNoEntrenado(Exception): pass
 # hay que codificarlos todos.
 
 # NOTA: NO USAR PANDAS NI SKLEARN PARA ESTA FUNCIÓN
+
+def codifica_one_hot(X: np.ndarray) -> np.ndarray:
+    """
+
+    :param X: dataset a codificar
+    :return: array codificado
+    """
+    result = []
+    for i in range(X.shape[1]):
+        clases = np.unique(X[:, i])
+        for cls in clases:
+            arr = np.where(X[:, i] == cls, 1, 0)
+            result.append(arr)
+    return np.array(result).T
+
 
 # Aplicar la función para obtener una codificación one-hot de los datos sobre
 # concesión de prestamo bancario.     
@@ -718,11 +1181,57 @@ class ClasificadorNoEntrenado(Exception): pass
 
 
 # --------------------------------------------------------------------------
+# ********** TOMADO DE LAS PRACTICAS DE CLASE
+def cargaImágenes(fichero, ancho, alto):
+    def convierte_0_1(c):
+        if c == " ":
+            return 0
+        else:
+            return 1
+
+    with open(fichero) as f:
+        lista_imagenes = []
+        ejemplo = []
+        cont_lin = 0
+        for lin in f:
+            ejemplo.extend(list(map(convierte_0_1, lin[:ancho])))
+            cont_lin += 1
+            if cont_lin == alto:
+                lista_imagenes.append(ejemplo)
+                ejemplo = []
+                cont_lin = 0
+    return np.array(lista_imagenes)
 
 
-# ********************************************************************************
-# ********************************************************************************
-# ********************************************************************************
+def cargaClases(fichero):
+    with open(fichero) as f:
+        return np.array([int(c) for c in f])
+
+
+trainingdigits = "datos/digitdata/trainingimages"
+
+validationdigits = "datos/digitdata/validationimages"
+
+testdigits = "datos/digitdata/testimages"
+
+trainingdigitslabels = "datos/digitdata/traininglabels"
+
+validationdigitslabels = "datos/digitdata/validationlabels"
+
+testdigitslabels = "datos/digitdata/testlabels"
+
+X_entr_dg = cargaImágenes(trainingdigits, 28, 28)
+
+y_entr_dg = cargaClases(trainingdigitslabels)
+
+X_val_dg = cargaImágenes(validationdigits, 28, 28)
+
+y_val_dg = cargaClases(validationdigitslabels)
+
+X_test_dg = cargaImágenes(testdigits, 28, 28)
+
+y_test_dg = cargaClases(testdigitslabels)
+
 # ********************************************************************************
 
 # EJEMPLOS DE PRUEBA
@@ -745,156 +1254,163 @@ class ClasificadorNoEntrenado(Exception): pass
 
 
 # *********** DESCOMENTAR A PARTIR DE AQUÍ
-
+#
 # print("************ PRUEBAS EJERCICIO 1:")
 # print("**********************************\n")
-# Xe_votos,Xp_votos,ye_votos,yp_votos=particion_entr_prueba(X_votos,y_votos,test=1/3)
-# print("Partición votos: ",y_votos.shape[0],ye_votos.shape[0],yp_votos.shape[0])
-# print("Proporción original en votos: ",np.unique(y_votos,return_counts=True))
-# print("Estratificación entrenamiento en votos: ",np.unique(ye_votos,return_counts=True))
-# print("Estratificación prueba en votos: ",np.unique(yp_votos,return_counts=True))
+Xe_votos, Xp_votos, ye_votos, yp_votos = particion_entr_prueba(X_votos, y_votos, test=1 / 3)
+# print("Partición votos: ", y_votos.shape[0], ye_votos.shape[0], yp_votos.shape[0])
+# print("Proporción original en votos: ", np.unique(y_votos, return_counts=True))
+# print("Estratificación entrenamiento en votos: ", np.unique(ye_votos, return_counts=True))
+# print("Estratificación prueba en votos: ", np.unique(yp_votos, return_counts=True))
 # print("\n")
-
-# Xev_cancer,Xp_cancer,yev_cancer,yp_cancer=particion_entr_prueba(X_cancer,y_cancer,test=0.2)
-# print("Proporción original en cáncer: ", np.unique(y_cancer,return_counts=True))
-# print("Estratificación entr-val en cáncer: ",np.unique(yev_cancer,return_counts=True))
-# print("Estratificación prueba en cáncer: ",np.unique(yp_cancer,return_counts=True))
-# Xe_cancer,Xv_cancer,ye_cancer,yv_cancer=particion_entr_prueba(Xev_cancer,yev_cancer,test=0.2)
-# print("Estratificación entrenamiento cáncer: ", np.unique(ye_cancer,return_counts=True))
-# print("Estratificación validación cáncer: ",np.unique(yv_cancer,return_counts=True))
+#
+Xev_cancer, Xp_cancer, yev_cancer, yp_cancer = particion_entr_prueba(X_cancer, y_cancer, test=0.2)
+# print("Proporción original en cáncer: ", np.unique(y_cancer, return_counts=True))
+# print("Estratificación entr-val en cáncer: ", np.unique(yev_cancer, return_counts=True))
+# print("Estratificación prueba en cáncer: ", np.unique(yp_cancer, return_counts=True))
+Xe_cancer, Xv_cancer, ye_cancer, yv_cancer = particion_entr_prueba(Xev_cancer, yev_cancer, test=0.2)
+# print("Estratificación entrenamiento cáncer: ", np.unique(ye_cancer, return_counts=True))
+# print("Estratificación validación cáncer: ", np.unique(yv_cancer, return_counts=True))
 # print("\n")
-
-# Xe_credito,Xp_credito,ye_credito,yp_credito=particion_entr_prueba(X_credito,y_credito,test=0.4)
-# print("Estratificación entrenamiento crédito: ",np.unique(ye_credito,return_counts=True))
-# print("Estratificación prueba crédito: ",np.unique(yp_credito,return_counts=True))
+#
+Xe_credito, Xp_credito, ye_credito, yp_credito = particion_entr_prueba(X_credito, y_credito, test=0.4)
+# print("Estratificación entrenamiento crédito: ", np.unique(ye_credito, return_counts=True))
+# print("Estratificación prueba crédito: ", np.unique(yp_credito, return_counts=True))
 # print("\n\n\n")
-
-
-# print("************ PRUEBAS EJERCICIO 2:")
-# print("**********************************\n")
-
-# nb_tenis=NaiveBayes(k=0.5)
-# nb_tenis.entrena(X_tenis,y_tenis)
-# ej_tenis=np.array(['Soleado','Baja','Alta','Fuerte'])
-# print("NB Clasifica_prob un ejemplo tenis: ",nb_tenis.clasifica_prob(ej_tenis))
-# print("NB Clasifica un ejemplo tenis: ",nb_tenis.clasifica([ej_tenis]))
+#
+# # print("************ PRUEBAS EJERCICIO 2:")
+# # print("**********************************\n")
+#
+# nb_tenis = NaiveBayes(k=0.5)
+# nb_tenis.entrena(X_tenis, y_tenis)
+# ej_tenis = np.array(['Soleado', 'Baja', 'Alta', 'Fuerte'])
+# print("NB Clasifica_prob un ejemplo tenis: ", nb_tenis.clasifica_prob(ej_tenis))
+# print("NB Clasifica un ejemplo tenis: ", nb_tenis.clasifica([ej_tenis]))
 # print("\n")
-
-# nb_votos=NaiveBayes(k=1)
-# nb_votos.entrena(Xe_votos,ye_votos)
-# print("NB Rendimiento votos sobre entrenamiento: ", rendimiento(nb_votos,Xe_votos,ye_votos))
-# print("NB Rendimiento votos sobre test: ", rendimiento(nb_votos,Xp_votos,yp_votos))
+#
+# nb_votos = NaiveBayes(k=1)
+# nb_votos.entrena(Xe_votos, ye_votos)
+# print("NB Rendimiento votos sobre entrenamiento: ", rendimiento(nb_votos, Xe_votos, ye_votos))
+# print("NB Rendimiento votos sobre test: ", rendimiento(nb_votos, Xp_votos, yp_votos))
 # print("\n")
-
-
-# nb_credito=NaiveBayes(k=1)
-# nb_credito.entrena(Xe_credito,ye_credito)
-# print("NB Rendimiento crédito sobre entrenamiento: ", rendimiento(nb_credito,Xe_credito,ye_credito))
-# print("NB Rendimiento crédito sobre test: ", rendimiento(nb_credito,Xp_credito,yp_credito))
+#
+# nb_credito = NaiveBayes(k=1)
+# nb_credito.entrena(Xe_credito, ye_credito)
+# print("NB Rendimiento crédito sobre entrenamiento: ", rendimiento(nb_credito, Xe_credito, ye_credito))
+# print("NB Rendimiento crédito sobre test: ", rendimiento(nb_credito, Xp_credito, yp_credito))
 # print("\n")
-
-
-# nb_imdb=NaiveBayes(k=1)
-# nb_imdb.entrena(X_train_imdb,y_train_imdb)
-# print("NB Rendimiento imdb sobre entrenamiento: ", rendimiento(nb_imdb,X_train_imdb,y_train_imdb))
-# print("NB Rendimiento imdb sobre test: ", rendimiento(nb_imdb,X_test_imdb,y_test_imdb))
+#
+# nb_imdb = NaiveBayes(k=1)
+# nb_imdb.entrena(X_train_imdb, y_train_imdb)
+# print("NB Rendimiento imdb sobre entrenamiento: ", rendimiento(nb_imdb, X_train_imdb, y_train_imdb))
+# print("NB Rendimiento imdb sobre test: ", rendimiento(nb_imdb, X_test_imdb, y_test_imdb))
 # print("\n")
-
-
+#
 # print("************ PRUEBAS EJERCICIO 3:")
 # print("**********************************\n")
-
-
+#
+# #
 # normst_cancer=NormalizadorStandard()
 # normst_cancer.ajusta(Xe_cancer)
 # Xe_cancer_n=normst_cancer.normaliza(Xe_cancer)
 # Xv_cancer_n=normst_cancer.normaliza(Xv_cancer)
 # Xp_cancer_n=normst_cancer.normaliza(Xp_cancer)
-
+#
+# # Esta prueba es erronea porque calcula la media del datase original y no del normalizado:
 # print("Normalización cancer entrenamiento: ",np.mean(Xe_cancer,axis=0))
 # print("Normalización cancer validación: ",np.mean(Xv_cancer,axis=0))
 # print("Normalización cancer test: ",np.mean(Xp_cancer,axis=0))
+#
+# # Esta las creamos nostros:
+#
+# print("Normalización cancer entrenamiento: ",np.mean(Xe_cancer_n,axis=0))
+# print("Normalización cancer validación: ",np.mean(Xv_cancer_n,axis=0))
+# print("Normalización cancer test: ",np.mean(Xp_cancer_n,axis=0))
 
 # print("\n\n\n")
-
-
+#
+#
 # print("************ PRUEBAS EJERCICIO 4:")
 # print("**********************************\n")
-
-
+#
+#
 # lr_cancer=RegresionLogisticaMiniBatch(rate=0.1,rate_decay=True)
 # lr_cancer.entrena(Xe_cancer_n,ye_cancer,Xv_cancer,yv_cancer)
 # print("LR clasifica cuatro ejemplos cáncer (y valor esperado): ",lr_cancer.clasifica(Xp_cancer_n[17:21]),yp_cancer[17:21])
 # print("LR clasifica_prob cuatro ejemplos cáncer: ", lr_cancer.clasifica_prob(Xp_cancer_n[17:21]))
 # print("LR rendimiento cáncer entrenamiento: ", rendimiento(lr_cancer,Xe_cancer_n,ye_cancer))
 # print("LR rendimiento cáncer prueba: ", rendimiento(lr_cancer,Xp_cancer_n,yp_cancer))
-
+#
 # print("\n\n CON SALIDA Y EARLY STOPPING**********************************\n")
-
+#
 # lr_cancer=RegresionLogisticaMiniBatch(rate=0.1,rate_decay=True)
 # lr_cancer.entrena(Xe_cancer_n,ye_cancer,Xv_cancer_n,yv_cancer,salida_epoch=True,early_stopping=True)
-
+#
 # print("\n\n\n")
-
+#
 # print("************ PRUEBAS EJERCICIO 6:")
 # print("**********************************\n")
-
+#
 # Xe_iris,Xp_iris,ye_iris,yp_iris=particion_entr_prueba(X_iris,y_iris)
-
+#
 # rl_iris_ovr=RL_OvR(rate=0.001,batch_tam=16)
-
-# rl_iris_ovr.entrena(Xe_iris,ye_iris)
-
+#
+# rl_iris_ovr.entrena(Xe_iris, ye_iris)
+#
 # print("OvR Rendimiento entrenamiento iris: ",rendimiento(rl_iris_ovr,Xe_iris,ye_iris))
 # print("OvR Rendimiento prueba iris: ",rendimiento(rl_iris_ovr,Xp_iris,yp_iris))
 # print("\n\n\n")
 
 
-# print("************ RENDIMIENTOS FINALES REGRESIÓN LOGÍSTICA EN CRÉDITO, IMDB y DÍGITOS")
-# print("*******************************************************************************\n")
+print("************ RENDIMIENTOS FINALES REGRESIÓN LOGÍSTICA EN CRÉDITO, IMDB y DÍGITOS")
+print("*******************************************************************************\n")
 
-
-# # ATENCIÓN: EN CADA CASO, USAR LA MEJOR COMBINACIÓN DE HIPERPARÁMETROS QUE SE HA 
-# # DEBIDO OBTENER EN EL PROCESO DE AJUSTE
-
+# ATENCIÓN: EN CADA CASO, USAR LA MEJOR COMBINACIÓN DE HIPERPARÁMETROS QUE SE HA
+# DEBIDO OBTENER EN EL PROCESO DE AJUSTE
+# #
 # print("==== MEJOR RENDIMIENTO RL SOBRE VOTOS:")
-# RL_VOTOS=RegresionLogisticaMiniBatch(rate=0.1,rate_decay=True,batch_tam=64) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
-# RL_VOTOS.entrena(Xe_votos,ye_votos) # Aumentar o disminuir los epochs si fuera necesario
-# print("Rendimiento RL entrenamiento sobre votos: ",rendimiento(RL_VOTOS,Xe_votos,ye_votos))
-# print("Rendimiento RL test sobre votos: ",rendimiento(RL_VOTOS,Xp_votos,yp_votos))
+# RL_VOTOS = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False,
+#                                        batch_tam=16)  # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+# RL_VOTOS.entrena(Xe_votos, ye_votos, n_epochs=50)  # Aumentar o disminuir los epochs si fuera necesario
+# print("Rendimiento RL entrenamiento sobre votos: ", rendimiento(RL_VOTOS, Xe_votos, ye_votos))
+# print("Rendimiento RL test sobre votos: ", rendimiento(RL_VOTOS, Xp_votos, yp_votos))
 # print("\n")
-
-
+# #
+# #
 # print("==== MEJOR RENDIMIENTO RL SOBRE CÁNCER:")
-# RL_CANCER=RegresionLogisticaMiniBatch(rate=0.1,rate_decay=True,batch_tam=64) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
-# RL_CANCER.entrena(Xe_cancer,ye_cancer) # Aumentar o disminuir los epochs si fuera necesario
-# print("Rendimiento RL entrenamiento sobre cáncer: ",rendimiento(RL_CANCER,Xe_cancer,ye_cancer))
-# print("Rendimiento RL test sobre cancer: ",rendimiento(RL_CANCER,Xp_cancer,yp_cancer))
+# RL_CANCER = RegresionLogisticaMiniBatch(rate=0.05, rate_decay=True,
+#                                         batch_tam=32)  # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+# RL_CANCER.entrena(Xe_cancer, ye_cancer, n_epochs=200)  # Aumentar o disminuir los epochs si fuera necesario
+# print("Rendimiento RL entrenamiento sobre cáncer: ", rendimiento(RL_CANCER, Xe_cancer, ye_cancer))
+# print("Rendimiento RL test sobre cancer: ", rendimiento(RL_CANCER, Xp_cancer, yp_cancer))
 # print("\n")
+#
 
-
+#
 # print("==== MEJOR RENDIMIENTO RL_OvR SOBRE CREDITO:")
-# X_credito_oh=codifica_one_hot(X_credito)
-# Xe_credito_oh,Xp_credito_oh,ye_credito,yp_credito=particion_entr_prueba(X_credito_oh,y_credito,test=0.3)
-
-# RL_CLASIF_CREDITO=RL_OvR(rate=0.1,rate_decay=True,batch_tam=64) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
-# RL_CLASIF_CREDITO.entrena(Xe_credito_oh,ye_credito) # Aumentar o disminuir los epochs si fuera necesario
-# print("Rendimiento RLOVR  entrenamiento sobre crédito: ",rendimiento(RL_CLASIF_CREDITO,Xe_credito_oh,ye_credito))
-# print("Rendimiento RLOVR  test sobre crédito: ",rendimiento(RL_CLASIF_CREDITO,Xp_credito_oh,yp_credito))
+# X_credito_oh = codifica_one_hot(X_credito)
+# Xe_credito_oh, Xp_credito_oh, ye_credito, yp_credito = particion_entr_prueba(X_credito_oh, y_credito, test=0.3)
+#
+# RL_CLASIF_CREDITO = RL_OvR(rate=0.1, rate_decay=False,
+#                            batch_tam=16)  # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+# RL_CLASIF_CREDITO.entrena(Xe_credito_oh, ye_credito, n_epochs=80)  # Aumentar o disminuir los epochs si fuera necesario
+# print("Rendimiento RLOVR  entrenamiento sobre crédito: ", rendimiento(RL_CLASIF_CREDITO, Xe_credito_oh, ye_credito))
+# print("Rendimiento RLOVR  test sobre crédito: ", rendimiento(RL_CLASIF_CREDITO, Xp_credito_oh, yp_credito))
 # print("\n")
 
-
+#
+#
 # print("==== MEJOR RENDIMIENTO RL SOBRE IMDB:")
-# RL_IMDB=RegresionLogisticaMiniBatch(rate=0.1,rate_decay=True,batch_tam=64) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
-# RL_IMDB.entrena(X_train_imdb,y_train_imdb) # Aumentar o disminuir los epochs si fuera necesario
+# RL_IMDB=RegresionLogisticaMiniBatch(rate=0.5,rate_decay=False,batch_tam=16) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+# RL_IMDB.entrena(X_train_imdb,y_train_imdb, n_epochs=40) # Aumentar o disminuir los epochs si fuera necesario
 # print("Rendimiento RL entrenamiento sobre imdb: ",rendimiento(RL_IMDB,X_train_imdb,y_train_imdb))
 # print("Rendimiento RL test sobre imdb: ",rendimiento(RL_IMDB,X_test_imdb,y_test_imdb))
 # print("\n")
-
-
-# print("==== MEJOR RENDIMIENTO RL SOBRE DIGITOS:")
-# RL_DG=RL_OvR(rate=0.1,rate_decay=True,batch_tam=64) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
-# RL_DG.entrena(X_entr_dg,y_entr_dg) # Aumentar o disminuir los epochs si fuera necesario
-# print("Rendimiento RL entrenamiento sobre dígitos: ",rendimiento(RL_DG,X_entr_dg,y_entr_dg))
-# print("Rendimiento RL validación sobre dígitos: ",rendimiento(RL_DG,X_val_dg,y_val_dg))
-# print("Rendimiento RL test sobre dígitos: ",rendimiento(RL_DG,X_test_dg,y_test_dg))
+#
+#
+print("==== MEJOR RENDIMIENTO RL SOBRE DIGITOS:")
+RL_DG=RL_OvR(rate=0.05, rate_decay=False, batch_tam=2) # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+RL_DG._entrena_paralelo(X_entr_dg,y_entr_dg, n_epochs=5, salida_epoch=False) # Aumentar o disminuir los epochs si fuera necesario
+print("Rendimiento RL entrenamiento sobre dígitos: ",rendimiento(RL_DG,X_entr_dg,y_entr_dg))
+print("Rendimiento RL validación sobre dígitos: ",rendimiento(RL_DG,X_val_dg,y_val_dg))
+print("Rendimiento RL test sobre dígitos: ",rendimiento(RL_DG,X_test_dg,y_test_dg))

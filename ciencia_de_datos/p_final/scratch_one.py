@@ -10,7 +10,7 @@ Xc = np.array([["a", 1, "c", "x"],
                ["c", 2, "f", "y"]])
 
 
-def codifica_one_hot(X: np.ndarray):
+def codifica_one_hot(X: np.ndarray) -> np.ndarray:
     result = []
     for i in range(X.shape[1]):
         clases = np.unique(X[:, i])
@@ -19,5 +19,3 @@ def codifica_one_hot(X: np.ndarray):
             result.append(arr)
     return np.array(result).T
 
-
-codifica_one_hot(Xc)

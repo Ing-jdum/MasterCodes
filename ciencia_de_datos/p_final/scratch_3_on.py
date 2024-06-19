@@ -1,7 +1,7 @@
 from typing import Tuple
 import numpy as np
 from carga_datos import *
-from ciencia_de_datos.p_final.scratch import ClasificadorNoEntrenado
+from ciencia_de_datos.p_final.scratch import ClasificadorNoEntrenado, particion_entr_prueba
 
 
 class NormalizadorNoAjustado(Exception):
@@ -61,6 +61,15 @@ class NormalizadorStandard:
         return X_norm
 
 
+
+
+Xev_cancer, Xp_cancer, yev_cancer, yp_cancer = particion_entr_prueba(X_cancer, y_cancer, test=0.2)
+Xe_cancer, Xv_cancer, ye_cancer, yv_cancer = particion_entr_prueba(Xev_cancer, yev_cancer, test=0.2)
+
 normst_cancer = NormalizadorStandard()
-normst_cancer.ajusta(X_cancer)
-Xe_cancer_n = normst_cancer.normaliza(X_cancer)
+normst_cancer.ajusta(Xe_cancer)
+Xe_cancer_n = normst_cancer.normaliza(Xe_cancer)
+
+
+# print("Normalización cancer entrenamiento: ",np.mean(Xe_cancer_n,axis=0))
+# print("fin")

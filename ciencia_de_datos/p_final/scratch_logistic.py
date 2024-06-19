@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from scipy.special import expit
 from carga_datos import *
@@ -106,23 +108,19 @@ class RegresionLogisticaMiniBatch:
                 self.w -= rate_actual * gradient
 
             # Calcular métricas de entrenamiento
-            y_pred_train = self.clasifica_prob(X)
-            cross_entropy_train = self._cross_entropy_loss(y, y_pred_train)
-            accuracy_train = rendimiento(self, X, y)
-
-            # Almacenar métricas de entrenamiento
-            self.cross_entropy_train.append(cross_entropy_train)
+            accuracy_train, cross_entropy_train = self._calculate_metrics(X, y, salida_epoch, early_stopping)
             self.accuracy_train.append(accuracy_train)
+
+            if cross_entropy_train is not None:
+                self.cross_entropy_train.append(cross_entropy_train)
 
             # Si hay conjunto de validación, calcular métricas de validación
             if Xv is not None and yv is not None:
-                y_pred_val = self.clasifica_prob(Xv)
-                cross_entropy_val = self._cross_entropy_loss(yv, y_pred_val)
-                accuracy_val = rendimiento(self, Xv, yv)
-
+                accuracy_val, cross_entropy_val = self._calculate_metrics(Xv, yv, salida_epoch, early_stopping)
 
                 # Almacenar métricas de validación
-                self.cross_entropy_val.append(cross_entropy_val)
+                if cross_entropy_val is not None:
+                    self.cross_entropy_val.append(cross_entropy_val)
                 self.accuracy_val.append(accuracy_val)
 
                 # Early stopping
@@ -134,19 +132,39 @@ class RegresionLogisticaMiniBatch:
                     else:
                         epochs_sin_mejora += 1
                         if epochs_sin_mejora >= paciencia:
-                            print(
-                                f"Detención anticipada en epoch {epoch}. Mejor entropía cruzada de validación "
-                                f"alcanzada: {mejor_ec_val}")
+                            print("PARADA TEMPRANA")
                             return
 
             # Imprimir métricas por epoch si salida_epoch es True
             if salida_epoch:
                 print(
-                    f"Epoch {epoch}: Entropía cruzada entrenamiento = {cross_entropy_train}, Rendimiento "
-                    f"entrenamiento = {accuracy_train}")
+                    f"Epoch {epoch}, En entrenamiento EC: {cross_entropy_train}, Rendimiento: {accuracy_train} ")
                 if Xv is not None and yv is not None:
                     print(
-                        f"Entropía cruzada validación = {cross_entropy_val}, Rendimiento validación = {accuracy_val}")
+                        f"en validación    EC: {cross_entropy_val}, Rendimiento: {accuracy_val}")
+
+    def _calculate_metrics(self, X: np.ndarray, y:np.ndarray, salida_epoch:bool, early_stopping:bool) -> Tuple[float, float]:
+        """
+        Función auxiliar para evitar repetir codigo en el calculo de metricas para validacion y entrenamiento
+        :param X:
+        :param y:
+        :param salida_epoch:
+        :param early_stopping:
+        :return:
+        """
+        y_pred_val = self.clasifica_prob(X)
+
+        # + Téngase en cuenta que el cálculo de la entropía cruzada no es necesario
+        #   para el entrenamiento, aunque si salida_epoch o early_stopping es True,
+        #   entonces si es necesario su cálculo. Tenerlo en cuenta para no calcularla
+        #   cuando no sea necesario.
+        if salida_epoch or early_stopping:
+            cross_entropy_val = self._cross_entropy_loss(y, y_pred_val)
+        else:
+            cross_entropy_val = None
+
+        accuracy_val = rendimiento(self, X, y)
+        return accuracy_val, cross_entropy_val
 
     def clasifica_prob(self, ejemplos: np.ndarray) -> np.ndarray:
         """
@@ -180,11 +198,9 @@ class RegresionLogisticaMiniBatch:
 # Xv_cancer_n = normst_cancer.normaliza(Xv_cancer)
 # Xp_cancer_n = normst_cancer.normaliza(Xp_cancer)
 # lr_cancer = RegresionLogisticaMiniBatch(rate=0.1, rate_decay=True)
-# print(Xe_cancer_n.shape)
-# print(ye_cancer.shape)
 # lr_cancer.entrena(Xe_cancer_n, ye_cancer, Xv_cancer, yv_cancer)
-# print(lr_cancer.w.shape)
-# print(Xp_cancer_n[26:27].shape)
+# # print(lr_cancer.w.shape)
+# # print(Xp_cancer_n[26:27].shape)
 # print(lr_cancer.clasifica_prob(Xp_cancer_n[26:27]))
 # print(lr_cancer.clasifica_prob(Xp_cancer_n[24:27]))
 # print(lr_cancer.clasifica(Xp_cancer_n[24:27]))
@@ -192,94 +208,94 @@ class RegresionLogisticaMiniBatch:
 # lr_cancer = RegresionLogisticaMiniBatch(rate=0.1, rate_decay=True)
 # lr_cancer.entrena(Xe_cancer_n, ye_cancer, Xv_cancer_n, yv_cancer, salida_epoch=True, early_stopping=True)
 
-ye_iris = np.array(
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        , 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-        , 1, 1, 1, 1, 1, 1])
-
-Xe_iris = np.array([[5.5, 4.2, 1.4, 0.2]
-                       , [5., 3.2, 1.2, 0.2]
-                       , [5., 3.4, 1.6, 0.4]
-                       , [4.9, 3.1, 1.5, 0.2]
-                       , [5.7, 3.8, 1.7, 0.3]
-                       , [5., 3.4, 1.5, 0.2]
-                       , [5.8, 4., 1.2, 0.2]
-                       , [4.8, 3., 1.4, 0.3]
-                       , [5.3, 3.7, 1.5, 0.2]
-                       , [4.7, 3.2, 1.6, 0.2]
-                       , [5.7, 4.4, 1.5, 0.4]
-                       , [4.8, 3.1, 1.6, 0.2]
-                       , [5.2, 4.1, 1.5, 0.1]
-                       , [5.4, 3.9, 1.3, 0.4]
-                       , [4.4, 3.2, 1.3, 0.2]
-                       , [5.4, 3.4, 1.7, 0.2]
-                       , [5., 3.5, 1.6, 0.6]
-                       , [4.4, 2.9, 1.4, 0.2]
-                       , [4.3, 3., 1.1, 0.1]
-                       , [5., 3., 1.6, 0.2]
-                       , [5.4, 3.9, 1.7, 0.4]
-                       , [5.1, 3.5, 1.4, 0.3]
-                       , [5., 3.5, 1.3, 0.3]
-                       , [5., 3.3, 1.4, 0.2]
-                       , [4.9, 3., 1.4, 0.2]
-                       , [4.8, 3., 1.4, 0.1]
-                       , [4.9, 3.6, 1.4, 0.1]
-                       , [4.8, 3.4, 1.9, 0.2]
-                       , [4.6, 3.4, 1.4, 0.3]
-                       , [5.1, 3.3, 1.7, 0.5]
-                       , [5.5, 3.5, 1.3, 0.2]
-                       , [5.1, 3.7, 1.5, 0.4]
-                       , [5.1, 3.8, 1.5, 0.3]
-                       , [4.9, 3.1, 1.5, 0.1]
-                       , [5.1, 3.4, 1.5, 0.2]
-                       , [5.1, 3.8, 1.6, 0.2]
-                       , [4.6, 3.1, 1.5, 0.2]
-                       , [5.1, 3.5, 1.4, 0.2]
-                       , [4.6, 3.2, 1.4, 0.2]
-                       , [5.1, 3.8, 1.9, 0.4]
-                       , [5.7, 2.9, 4.2, 1.3]
-                       , [4.9, 2.4, 3.3, 1., ]
-                       , [5.4, 3., 4.5, 1.5]
-                       , [5.6, 2.5, 3.9, 1.1]
-                       , [5., 2.3, 3.3, 1., ]
-                       , [5.8, 2.7, 3.9, 1.2]
-                       , [6.6, 2.9, 4.6, 1.3]
-                       , [6.3, 2.5, 4.9, 1.5]
-                       , [5.7, 2.6, 3.5, 1., ]
-                       , [5.6, 2.7, 4.2, 1.3]
-                       , [6.8, 2.8, 4.8, 1.4]
-                       , [5.8, 2.6, 4., 1.2]
-                       , [6.4, 2.9, 4.3, 1.3]
-                       , [6.3, 3.3, 4.7, 1.6]
-                       , [6.1, 3., 4.6, 1.4]
-                       , [6.2, 2.9, 4.3, 1.3]
-                       , [5.9, 3.2, 4.8, 1.8]
-                       , [5., 2., 3.5, 1., ]
-                       , [6.6, 3., 4.4, 1.4]
-                       , [6., 2.2, 4., 1., ]
-                       , [6.1, 2.8, 4., 1.3]
-                       , [5.5, 2.3, 4., 1.3]
-                       , [5.6, 2.9, 3.6, 1.3]
-                       , [5.1, 2.5, 3., 1.1]
-                       , [6.7, 3., 5., 1.7]
-                       , [6.2, 2.2, 4.5, 1.5]
-                       , [5.9, 3., 4.2, 1.5]
-                       , [6., 3.4, 4.5, 1.6]
-                       , [5.5, 2.5, 4., 1.3]
-                       , [6.4, 3.2, 4.5, 1.5]
-                       , [5.5, 2.4, 3.7, 1., ]
-                       , [6.5, 2.8, 4.6, 1.5]
-                       , [6.7, 3.1, 4.4, 1.4]
-                       , [5.8, 2.7, 4.1, 1., ]
-                       , [5.5, 2.6, 4.4, 1.2]
-                       , [5.6, 3., 4.1, 1.3]
-                       , [5.7, 2.8, 4.5, 1.3]
-                       , [6.7, 3.1, 4.7, 1.5]
-                       , [5.7, 2.8, 4.1, 1.3]
-                       , [7., 3.2, 4.7, 1.4]])
-
-lr_cancer = RegresionLogisticaMiniBatch(rate=0.1, rate_decay=True)
-
-lr_cancer.entrena(Xe_iris, ye_iris, Xe_iris, ye_iris)
-
-print(lr_cancer.w)
+# ye_iris = np.array(
+#     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+#         , 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+#         , 1, 1, 1, 1, 1, 1])
+#
+# Xe_iris = np.array([[5.5, 4.2, 1.4, 0.2]
+#                        , [5., 3.2, 1.2, 0.2]
+#                        , [5., 3.4, 1.6, 0.4]
+#                        , [4.9, 3.1, 1.5, 0.2]
+#                        , [5.7, 3.8, 1.7, 0.3]
+#                        , [5., 3.4, 1.5, 0.2]
+#                        , [5.8, 4., 1.2, 0.2]
+#                        , [4.8, 3., 1.4, 0.3]
+#                        , [5.3, 3.7, 1.5, 0.2]
+#                        , [4.7, 3.2, 1.6, 0.2]
+#                        , [5.7, 4.4, 1.5, 0.4]
+#                        , [4.8, 3.1, 1.6, 0.2]
+#                        , [5.2, 4.1, 1.5, 0.1]
+#                        , [5.4, 3.9, 1.3, 0.4]
+#                        , [4.4, 3.2, 1.3, 0.2]
+#                        , [5.4, 3.4, 1.7, 0.2]
+#                        , [5., 3.5, 1.6, 0.6]
+#                        , [4.4, 2.9, 1.4, 0.2]
+#                        , [4.3, 3., 1.1, 0.1]
+#                        , [5., 3., 1.6, 0.2]
+#                        , [5.4, 3.9, 1.7, 0.4]
+#                        , [5.1, 3.5, 1.4, 0.3]
+#                        , [5., 3.5, 1.3, 0.3]
+#                        , [5., 3.3, 1.4, 0.2]
+#                        , [4.9, 3., 1.4, 0.2]
+#                        , [4.8, 3., 1.4, 0.1]
+#                        , [4.9, 3.6, 1.4, 0.1]
+#                        , [4.8, 3.4, 1.9, 0.2]
+#                        , [4.6, 3.4, 1.4, 0.3]
+#                        , [5.1, 3.3, 1.7, 0.5]
+#                        , [5.5, 3.5, 1.3, 0.2]
+#                        , [5.1, 3.7, 1.5, 0.4]
+#                        , [5.1, 3.8, 1.5, 0.3]
+#                        , [4.9, 3.1, 1.5, 0.1]
+#                        , [5.1, 3.4, 1.5, 0.2]
+#                        , [5.1, 3.8, 1.6, 0.2]
+#                        , [4.6, 3.1, 1.5, 0.2]
+#                        , [5.1, 3.5, 1.4, 0.2]
+#                        , [4.6, 3.2, 1.4, 0.2]
+#                        , [5.1, 3.8, 1.9, 0.4]
+#                        , [5.7, 2.9, 4.2, 1.3]
+#                        , [4.9, 2.4, 3.3, 1., ]
+#                        , [5.4, 3., 4.5, 1.5]
+#                        , [5.6, 2.5, 3.9, 1.1]
+#                        , [5., 2.3, 3.3, 1., ]
+#                        , [5.8, 2.7, 3.9, 1.2]
+#                        , [6.6, 2.9, 4.6, 1.3]
+#                        , [6.3, 2.5, 4.9, 1.5]
+#                        , [5.7, 2.6, 3.5, 1., ]
+#                        , [5.6, 2.7, 4.2, 1.3]
+#                        , [6.8, 2.8, 4.8, 1.4]
+#                        , [5.8, 2.6, 4., 1.2]
+#                        , [6.4, 2.9, 4.3, 1.3]
+#                        , [6.3, 3.3, 4.7, 1.6]
+#                        , [6.1, 3., 4.6, 1.4]
+#                        , [6.2, 2.9, 4.3, 1.3]
+#                        , [5.9, 3.2, 4.8, 1.8]
+#                        , [5., 2., 3.5, 1., ]
+#                        , [6.6, 3., 4.4, 1.4]
+#                        , [6., 2.2, 4., 1., ]
+#                        , [6.1, 2.8, 4., 1.3]
+#                        , [5.5, 2.3, 4., 1.3]
+#                        , [5.6, 2.9, 3.6, 1.3]
+#                        , [5.1, 2.5, 3., 1.1]
+#                        , [6.7, 3., 5., 1.7]
+#                        , [6.2, 2.2, 4.5, 1.5]
+#                        , [5.9, 3., 4.2, 1.5]
+#                        , [6., 3.4, 4.5, 1.6]
+#                        , [5.5, 2.5, 4., 1.3]
+#                        , [6.4, 3.2, 4.5, 1.5]
+#                        , [5.5, 2.4, 3.7, 1., ]
+#                        , [6.5, 2.8, 4.6, 1.5]
+#                        , [6.7, 3.1, 4.4, 1.4]
+#                        , [5.8, 2.7, 4.1, 1., ]
+#                        , [5.5, 2.6, 4.4, 1.2]
+#                        , [5.6, 3., 4.1, 1.3]
+#                        , [5.7, 2.8, 4.5, 1.3]
+#                        , [6.7, 3.1, 4.7, 1.5]
+#                        , [5.7, 2.8, 4.1, 1.3]
+#                        , [7., 3.2, 4.7, 1.4]])
+#
+# lr_cancer = RegresionLogisticaMiniBatch(rate=0.1, rate_decay=True)
+#
+# lr_cancer.entrena(Xe_iris, ye_iris, Xe_iris, ye_iris)
+#
+# print(lr_cancer.w)

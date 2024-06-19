@@ -79,10 +79,11 @@ class NaiveBayes:
         result = {}
         proportional_probs = self.calculate_proportional_probabilities(ejemplo)
 
-        # Exponentiate to obtain probabilities
+        # Estos pasos son solo necesarios para obtener una probabilidad y no un valor proporcional a la probabilidad.
+        # Convertir a probabilidad eliminando las operaciones de logaritmo
         prob_props = np.exp(proportional_probs)
 
-        # Normalize probabilities to sum to 1 (optional step)
+        # Normalizar
         prob_props /= np.sum(prob_props)
 
         for idx, current_class in enumerate(self.classes):
@@ -116,7 +117,6 @@ class NaiveBayes:
             conditional_prob = numerator / denom
 
             # Calcular la probabilidad proporcional
-            # proportional_probs[idx] = self.__priors[idx] * np.prod(conditional_prob)
             proportional_probs[idx] = np.log(self.priors[idx]) + np.sum(np.log(conditional_prob))
         return proportional_probs
 
@@ -141,7 +141,7 @@ def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
     y_pred_accum = 0
     for idx, x in enumerate(X):
         pred = clasificador.clasifica(x) == y[idx]
-        y_pred_accum += pred
+        y_pred_accum += int(pred)
 
     # Calculate the total number of predictions
     total = len(y)
@@ -159,3 +159,4 @@ def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
 # print(nb_tenis.clasifica(ej_tenis))
 #
 # print("rendimiento", rendimiento(nb_tenis, X_tenis, y_tenis))
+#

@@ -55,8 +55,8 @@ X_test_dg = cargaImágenes(testdigits, 28, 28)
 y_test_dg = cargaClases(testdigitslabels)
 
 
-rl_iris_ovr = RL_OvR(rate=0.001, batch_tam=2)
+rl_iris_ovr = RL_OvR(rate=0.05, rate_decay=False, batch_tam=3)
 
-rl_iris_ovr.entrena(X_train_dg, y_train_dg, n_epochs=5)
+rl_iris_ovr._entrena_paralelo(X_train_dg, y_train_dg, n_epochs=5)
 
 print(rendimiento(rl_iris_ovr, X_test_dg, y_test_dg))
