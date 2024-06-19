@@ -138,7 +138,7 @@ def particion_entr_prueba(X: np.ndarray, y: np.ndarray, test: float = 0.20) -> T
     :param X: Training data
     :param y:  Target Data
     :param test: Proporcion de test del total
-    :return: X_train, y_train, X_test, y_test
+    :return: X_train, X_test, y_train, y_test
     """
     np.random.seed(0)
     # obtener las particiones de estratificación
@@ -434,7 +434,45 @@ def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
 
 # - Votos de congresistas US
 # - Concesión de prestamos
-# - Críticas de películas en IMDB 
+# - Críticas de películas en IMDB
+
+# ================================== RESPUESTA  ==================================
+
+# Hicimos una función de busqueda exhustiva para distintos valores de K. Se entrena una vez y con el conjunto de validacion
+# se elige la mejor k
+# def calculate_best_k(X_train, X_val, X_test,  y_train, y_val, y_test, ks: np.ndarray = np.arange(0.1, 3, 0.1)):
+#
+#     classifier = NaiveBayes()
+#     classifier.entrena(X_train, y_train)
+#     acc = []
+#
+#     for k in ks:
+#         classifier.k = k
+#         acc.append(rendimiento(classifier, X_val, y_val))
+#
+#     k = np.argmax(acc)
+#     classifier.k = k
+#     print("{:.2f}, {:.2f}".format(rendimiento(classifier, X_test, y_test), acc[k]))
+#     return k
+#
+#
+# # - Votos de congresistas US
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_votos, y_votos, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+# calculate_best_k(X_train, X_val, X_test, y_train, y_val, y_test)
+# # 0.92, k=0.90
+#
+# # - Concesión de prestamos
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_credito, y_credito, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.4)
+# calculate_best_k(X_train, X_val, X_test, y_train, y_val, y_test)
+# # 0.63 k= 0.58
+#
+# # - Críticas de películas en IMDB
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_test_imdb, y_test_imdb, test=0.5)
+# calculate_best_k(X_train_imdb, X_val, X_test, y_train_imdb, y_val, y_test)
+# # tarda mucho en terminar
+# # 0.83 k= 0.78
 
 # En todos los casos, será necesario separar un conjunto de test para dar la
 # valoración final de los clasificadores obtenidos (ya realizado en el ejerciio 
@@ -712,7 +750,7 @@ class RegresionLogisticaMiniBatch:
         self.rate_decay = rate_decay
         self.n_epochs = n_epochs
         self.batch_tam = batch_tam
-        self.w = None  # Se inicializará en el método entrena
+        self.w = None
         self.classes = None
         self.cross_entropy_train = []
         self.accuracy_train = []
@@ -723,8 +761,8 @@ class RegresionLogisticaMiniBatch:
     @staticmethod
     def _sigmoid(x):
         """
-        Función sigmoide usando expit de scipy.special.
-        :param x: Array de entrada.
+        Función sigmoide usando expit
+        :param x: Array de entrada
         :return: Array con valores sigmoide.
         """
 
@@ -739,14 +777,12 @@ class RegresionLogisticaMiniBatch:
         :return: Pérdida de entropía cruzada.
         """
 
-        epsilon = 1e-10  # Para evitar log(0)
-        y_pred = np.clip(y_pred, epsilon, 1 - epsilon)  # Clip para evitar log(0) y log(1)
         loss = -np.mean(np.where(y_true == 1, np.log(y_pred), np.log(1 - y_pred)))
         return loss
 
     def entrena(self, X, y, Xv=None, yv=None, n_epochs=None, salida_epoch=False, early_stopping=False, paciencia=3):
         """
-        Entrena el clasificador utilizando regresión logística
+        Entrena el clasificador utilizano regresión logística
         con descenso de gradiente mini-batch.
 
         :param X: Matriz de datos de entrenamiento de forma (n_samples, n_features).
@@ -903,9 +939,37 @@ class RegresionLogisticaMiniBatch:
 # - Cáncer de mama 
 # - Críticas de películas en IMDB
 
+
+# - Votos de congresistas US
+
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_votos, y_votos, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+# lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=200)
+# lr.entrena(X_train, y_train, X_val, y_val)
+# print(rendimiento(lr, X_test, y_test))
+# 0.9351851851851852
+
+# # - Cáncer de mama
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_cancer, y_cancer, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+# lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=200)
+# lr.entrena(X_train, y_train, X_val, y_val)
+# print(rendimiento(lr, X_test, y_test))
+# 0.9366197183098591
+
+# # - Críticas de películas en IMDB
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_test_imdb, y_test_imdb, test=0.5)
+# lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=60)
+# lr.entrena(X_train_imdb, y_train_imdb, X_val, y_val)
+# print(rendimiento(lr, X_test, y_test))
+# 0.8
+
 # Ajustar los parámetros (tasa, rate_decay, batch_tam) para mejorar el rendimiento 
 # (no es necesario ser muy exhaustivo, tan solo probar algunas combinaciones). 
-# Usar para ello un conjunto de validación. 
+# Usar para ello un conjunto de validación.
+
+ # Se probaron distintas combinaciones de learning rate, rate decay y n_epochs para cada conjunto de datos
+ # y se colocan como comentario los mejores resultados
 
 # Dsctbir el proceso realizado en cada caso, y los rendimientos finales obtenidos
 # sobre un conjunto de prueba (dejarlo todo como comentario)     
@@ -1139,8 +1203,20 @@ def codifica_one_hot(X: np.ndarray) -> np.ndarray:
 # apartado anterior, para obtener un clasificador que aconseje la concesión, 
 # estudio o no concesión de un préstamo, basado en los datos X_credito, y_credito. 
 
+
 # Ajustar adecuadamente los parámetros (nuevamente, no es necesario ser demasiado 
 # exhaustivo). Describirlo en los comentarios. 
+
+# print("==== MEJOR RENDIMIENTO RL_OvR SOBRE CREDITO:")
+# X_credito_oh = codifica_one_hot(X_credito)
+# Xe_credito_oh, Xp_credito_oh, ye_credito, yp_credito = particion_entr_prueba(X_credito_oh, y_credito, test=0.3)
+#
+# RL_CLASIF_CREDITO = RL_OvR(rate=0.1, rate_decay=False,
+#                            batch_tam=16)  # ATENCIÓN: sustituir aquí por los mejores parámetros tras el ajuste
+# RL_CLASIF_CREDITO.entrena(Xe_credito_oh, ye_credito, n_epochs=80)  # Aumentar o disminuir los epochs si fuera necesario
+# print("Rendimiento RLOVR  entrenamiento sobre crédito: ", rendimiento(RL_CLASIF_CREDITO, Xe_credito_oh, ye_credito))
+# print("Rendimiento RLOVR  test sobre crédito: ", rendimiento(RL_CLASIF_CREDITO, Xp_credito_oh, yp_credito))
+# print("\n")
 
 
 # ---------------------------------------------------------

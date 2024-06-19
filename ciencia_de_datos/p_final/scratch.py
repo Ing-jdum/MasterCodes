@@ -11,7 +11,7 @@ def particion_entr_prueba(x: np.ndarray, y: np.ndarray, test: float = 0.20) -> T
     :param x: Training data
     :param y:  Target Data
     :param test: Proporcion de test del total
-    :return: X_train, y_train, X_test, y_test
+    :return: X_train, X_test, y_train, y_test
     """
     np.random.seed(0)
     # obtener las particiones de estratificación
@@ -112,7 +112,6 @@ class NaiveBayes:
             # divisor del suavizado laplace
             numerator = counts + self.k
             denom = self.class_count[idx] + (self.k * self.unique_feature_count)
-
             # calculo del valor de las probabilidades condicionales
             conditional_prob = numerator / denom
 
@@ -152,11 +151,36 @@ def rendimiento(clasificador, X: np.ndarray, y: np.ndarray) -> float:
     return accuracy
 
 
-# nb_tenis = NaiveBayes(k=0.5)
-# nb_tenis.entrena(X_tenis, y_tenis)
-# ej_tenis = np.array(['Soleado', 'Baja', 'Alta', 'Fuerte'])
-# print(nb_tenis.clasifica_prob(ej_tenis))
-# print(nb_tenis.clasifica(ej_tenis))
+def calculate_best_k(X_train, X_val, X_test,  y_train, y_val, y_test, ks: np.ndarray = np.arange(0.1, 3, 0.1)):
+
+    classifier = NaiveBayes()
+    classifier.entrena(X_train, y_train)
+    acc = []
+
+    for k in ks:
+        classifier.k = k
+        acc.append(rendimiento(classifier, X_val, y_val))
+
+    k = np.argmax(acc)
+    classifier.k = k
+    print("{:.2f}, {:.2f}".format(rendimiento(classifier, X_test, y_test), acc[k]))
+    return k
+
+
+# - Votos de congresistas US
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_votos, y_votos, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+# calculate_best_k(X_train, X_val, X_test, y_train, y_val, y_test)
+# # 0.92, k=0.90
 #
-# print("rendimiento", rendimiento(nb_tenis, X_tenis, y_tenis))
+# # - Concesión de prestamos
+# X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_credito, y_credito, test=0.5)
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.4)
+# calculate_best_k(X_train, X_val, X_test, y_train, y_val, y_test)
+# # 0.63 k= 0.58
 #
+# # - Críticas de películas en IMDB
+# X_val, X_test, y_val, y_test = particion_entr_prueba(X_test_imdb, y_test_imdb, test=0.5)
+# calculate_best_k(X_train_imdb, X_val, X_test, y_train_imdb, y_val, y_test)
+# tarda mucho en terminar
+# 0.83 k= 0.78

@@ -42,7 +42,6 @@ class RegresionLogisticaMiniBatch:
         """
 
         epsilon = 1e-10  # Para evitar log(0)
-        y_pred = np.clip(y_pred, epsilon, 1 - epsilon)  # Clip para evitar log(0) y log(1)
         loss = -np.mean(np.where(y_true == 1, np.log(y_pred), np.log(1 - y_pred)))
         return loss
 
@@ -143,7 +142,8 @@ class RegresionLogisticaMiniBatch:
                     print(
                         f"en validación    EC: {cross_entropy_val}, Rendimiento: {accuracy_val}")
 
-    def _calculate_metrics(self, X: np.ndarray, y:np.ndarray, salida_epoch:bool, early_stopping:bool) -> Tuple[float, float]:
+    def _calculate_metrics(self, X: np.ndarray, y: np.ndarray, salida_epoch: bool, early_stopping: bool) -> Tuple[
+        float, float]:
         """
         Función auxiliar para evitar repetir codigo en el calculo de metricas para validacion y entrenamiento
         :param X:
@@ -188,6 +188,44 @@ class RegresionLogisticaMiniBatch:
             raise ClasificadorNoEntrenado("El modelo no ha sido entrenado.")
         probabilidades = self.clasifica_prob(ejemplos)
         return np.where(probabilidades >= 0.5, self.classes[1], self.classes[0])
+
+
+# ===================================================
+# EJERCICIO 5: APLICANDO LOS CLASIFICADORES BINARIOS
+# ===================================================
+
+
+# Usando la regeresión logística implementada en el ejercicio 2, obtener clasificadores
+# con el mejor rendimiento posible para los siguientes conjunto de datos:
+
+# - Votos de congresistas US
+
+X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_votos, y_votos, test=0.5)
+X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=200)
+lr.entrena(X_train, y_train, X_val, y_val)
+print(rendimiento(lr, X_test, y_test))
+
+# - Cáncer de mama
+X_train, X_temp, y_train, y_temp = particion_entr_prueba(X_cancer, y_cancer, test=0.5)
+X_val, X_test, y_val, y_test = particion_entr_prueba(X_temp, y_temp, test=0.5)
+lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=200)
+lr.entrena(X_train, y_train, X_val, y_val)
+print(rendimiento(lr, X_test, y_test))
+
+# - Críticas de películas en IMDB
+X_val, X_test, y_val, y_test = particion_entr_prueba(X_test_imdb, y_test_imdb, test=0.5)
+lr = RegresionLogisticaMiniBatch(rate=0.5, rate_decay=False, n_epochs=60)
+lr.entrena(X_train_imdb, y_train_imdb, X_val, y_val)
+print(rendimiento(lr, X_test, y_test))
+
+
+# Ajustar los parámetros (tasa, rate_decay, batch_tam) para mejorar el rendimiento
+# (no es necesario ser muy exhaustivo, tan solo probar algunas combinaciones).
+# Usar para ello un conjunto de validación.
+
+# Dsctbir el proceso realizado en cada caso, y los rendimientos finales obtenidos
+# sobre un conjunto de prueba (dejarlo todo como comentario)
 
 
 # Xev_cancer, Xp_cancer, yev_cancer, yp_cancer = particion_entr_prueba(X_cancer, y_cancer, test=0.2)
